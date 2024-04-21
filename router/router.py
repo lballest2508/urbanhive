@@ -93,7 +93,8 @@ def delete_user(id: int, current_user: str = Depends(get_current_user)):
         return Response(status_code=HTTP_204_NO_CONTENT)
 
 @user.post("/api/user/login")
-def login_user(data_login: OAuth2PasswordRequestForm = Depends()):
+# def login_user(data_login: OAuth2PasswordRequestForm = Depends()): Esta linea se habilita solo para cuando se vayan hacer pruebas en la documentacion en el backend
+def login_user(data_login: UserLoginSchema):
     with engine.connect() as conn:
         result = conn.execute(users.select().where(users.c.username == data_login.username)).fetchone()
         if result is None or not check_password_hash(result.password, data_login.password):
@@ -109,7 +110,7 @@ def login_user(data_login: OAuth2PasswordRequestForm = Depends()):
         access_token = create_access_token(
             data={"sub": user_data["username"]}, expires_delta=access_token_expires
         )
-        return {"access_token": access_token, "token_type": "bearer"}
+        return {"access_token": access_token, "user": user_data}
         
 # endpoints del modulo de parametros
 @parametro.get("/api/parametros")
