@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import jwt
 from config import SECRET_KEY, ALGORITHM
+from jose import JWTError
 
 user = APIRouter()
 parametro = APIRouter()
@@ -21,18 +22,28 @@ def create_access_token(data: dict, expires_delta: timedelta = None):
     if expires_delta:
         expire = datetime.now(timezone.utc) + expires_delta
     else:
-        expire = datetime.now(timezone.utc) + timedelta(minutes=15) # Token expira en 15 minutos
+        expire = datetime.now(timezone.utc) + timedelta(minutes=30) # Token expira en 15 minutos
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+def get_current_user(token: str = Depends(oauth2_scheme)):
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise HTTPException(status_code=401, detail="Token invalido")
+        return username
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Token invalido")
+
 @user.get("/")
-def read_root():
+def read_root(current_user: str = Depends(get_current_user)):
     return {"message": "Hello World"}
 
 # endpoints del modulo de users
 @user.get("/api/user", response_model=List[UserSchema])
-def get_all_user():
+def get_all_user(current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         result = conn.execute(users.select()).fetchall()
         columns = users.columns.keys()
@@ -41,7 +52,7 @@ def get_all_user():
         return user_list
 
 @user.post("/api/user", status_code=HTTP_201_CREATED)
-def create_user(data_user: UserSchema):
+def create_user(data_user: UserSchema, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         new_user = data_user.model_dump()
         new_user["password"] = generate_password_hash(data_user.password, "pbkdf2:sha256:30", 20)
@@ -50,7 +61,7 @@ def create_user(data_user: UserSchema):
         return Response(status_code=HTTP_201_CREATED)
     
 @user.get("/api/user/{id}", response_model=UserSchema)
-def get_user_by_id(id: int):
+def get_user_by_id(id: int, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         result = conn.execute(users.select().where(users.c.id == id)).fetchone()
         columns = users.columns.keys()
@@ -58,7 +69,7 @@ def get_user_by_id(id: int):
         return user
     
 @user.put("/api/user/{id}", response_model=UserSchema)
-def update_user(data_update: UserSchema, id: int):
+def update_user(data_update: UserSchema, id: int, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         encrypted_password = generate_password_hash(data_update.password, "pbkdf2:sha256:30", 20)
 
@@ -75,7 +86,7 @@ def update_user(data_update: UserSchema, id: int):
         return user
     
 @user.delete("/api/user/{id}")
-def delete_user(id: int):
+def delete_user(id: int, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         conn.execute(users.delete().where(users.c.id == id))
         conn.commit()
@@ -102,7 +113,7 @@ def login_user(data_login: OAuth2PasswordRequestForm = Depends()):
         
 # endpoints del modulo de parametros
 @parametro.get("/api/parametros")
-def get_parametros():
+def get_parametros(current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         result = conn.execute(parametros.select()).fetchall()
         columns = parametros.columns.keys()
@@ -111,7 +122,7 @@ def get_parametros():
         return parametros_list
     
 @parametro.get("/api/parametros/{id}")
-def get_parametro_by_id(id: int):
+def get_parametro_by_id(id: int, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         result = conn.execute(parametros.select().where(parametros.c.id == id)).fetchone()
         columns = parametros.columns.keys()
@@ -119,7 +130,7 @@ def get_parametro_by_id(id: int):
         return parametro
     
 @parametro.post("/api/parametros")
-def create_parametro(data_parametro: ParametroSchema):
+def create_parametro(data_parametro: ParametroSchema, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         new_parametro = data_parametro.model_dump()
         conn.execute(parametros.insert().values(new_parametro))
@@ -127,7 +138,7 @@ def create_parametro(data_parametro: ParametroSchema):
         return Response(status_code=HTTP_201_CREATED)
     
 @parametro.put("/api/parametros/{id}")
-def update_parametro(data_update: ParametroSchema, id: int):
+def update_parametro(data_update: ParametroSchema, id: int, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         conn.execute(parametros.update().values(
             nombre=data_update.nombre,
@@ -142,7 +153,7 @@ def update_parametro(data_update: ParametroSchema, id: int):
         return parametro
     
 @parametro.delete("/api/parametros/{id}")
-def delete_parametro(id: int):
+def delete_parametro(id: int, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         conn.execute(parametros.delete().where(parametros.c.id == id))
         conn.commit()
@@ -150,7 +161,7 @@ def delete_parametro(id: int):
     
 # endpoints del modulo de valores_parametro
 @valores_parametro.get("/api/valores_parametro")
-def get_valores_parametro():
+def get_valores_parametro(current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         result = conn.execute(valor_parametro.select()).fetchall()
         columns = valor_parametro.columns.keys()
@@ -159,7 +170,7 @@ def get_valores_parametro():
         return valores_parametro_list
     
 @valores_parametro.get("/api/valores_parametro/{id}")
-def get_valor_parametro_by_id(id: int):
+def get_valor_parametro_by_id(id: int, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         result = conn.execute(valor_parametro.select().where(valor_parametro.c.id == id)).fetchone()
         columns = valor_parametro.columns.keys()
@@ -167,7 +178,7 @@ def get_valor_parametro_by_id(id: int):
         return valor_parametro_data
 
 @valores_parametro.post("/api/valores_parametro")
-def create_valor_parametro(data_valor_parametro: ValorParametroSchema):
+def create_valor_parametro(data_valor_parametro: ValorParametroSchema, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         new_valor_parametro = data_valor_parametro.model_dump()
         conn.execute(valor_parametro.insert().values(new_valor_parametro))
@@ -175,7 +186,7 @@ def create_valor_parametro(data_valor_parametro: ValorParametroSchema):
         return Response(status_code=HTTP_201_CREATED)
     
 @valores_parametro.put("/api/valores_parametro/{id}")
-def update_valor_parametro(data_update: ValorParametroSchema, id: int):
+def update_valor_parametro(data_update: ValorParametroSchema, id: int, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         conn.execute(valor_parametro.update().values(
             id_aux=data_update.id_aux,
@@ -195,14 +206,14 @@ def update_valor_parametro(data_update: ValorParametroSchema, id: int):
         return valor_parametro_data
     
 @valores_parametro.delete("/api/valores_parametro/{id}")
-def delete_valor_parametro(id: int):
+def delete_valor_parametro(id: int, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         conn.execute(valor_parametro.delete().where(valor_parametro.c.id == id))
         conn.commit()
         return Response(status_code=HTTP_204_NO_CONTENT)
     
 @valores_parametro.get("/api/valores_parametro/parametro/{id}")
-def get_valor_parametro_by_parametro(id: int):
+def get_valor_parametro_by_parametro(id: int, current_user: str = Depends(get_current_user)):
     with engine.connect() as conn:
         result = conn.execute(valor_parametro.select().where(valor_parametro.c.id_parametro == id)).fetchall()
         columns = valor_parametro.columns.keys()
