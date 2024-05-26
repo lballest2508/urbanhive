@@ -6,6 +6,15 @@ class UserSchema(BaseModel):
     username: str
     password: str
 
+class UserEditSchema(BaseModel):
+    id: int | None = None
+    name: str
+    username: str
+
+class PasswordSchema(BaseModel):
+    id: int | None = None
+    password: str
+
 class UserLoginSchema(BaseModel):
     username: str
     password: str
