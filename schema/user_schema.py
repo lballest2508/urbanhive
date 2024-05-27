@@ -33,5 +33,5 @@ class ValorParametroSchema(BaseModel):
     valorx: str
     valory: str
     valorz: str
-    valora: str
-    estado: bool
+    valora: str | None = None
+    estado: bool | None = None

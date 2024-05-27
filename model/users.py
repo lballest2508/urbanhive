@@ -23,7 +23,7 @@ valor_parametro = Table('valor_parametro', meta_data,
     Column('valorx', String(255), nullable=False),
     Column('valory', String(255), nullable=False),
     Column('valorz', String(255), nullable=False),
-    Column('valora', String(255), nullable=False),
+    Column('valora', String(255), nullable=True),
     Column('estado', Boolean, nullable=False),
 )
 meta_data.create_all(engine)
